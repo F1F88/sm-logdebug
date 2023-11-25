@@ -1,2 +1,4 @@
 # sm-logdebug
- Sourcemod debug logging library
+ Sourcemod logging library for plugins.
+
+Adapted from original version by Dr. McKay.
