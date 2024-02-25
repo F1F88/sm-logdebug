@@ -43,7 +43,7 @@ enum
     LogParts_TickCount                  = 2,    /**< Message will include current tick count */
     LogParts_Level                      = 4,    /**< Message will include log level */
     LogParts_StackCallerBrief           = 8,    /**< Message will include full location in the following syntax sourcefile::function:line */
-    LogParts_ALL                        = 31
+    LogParts_ALL                        = 15
 }
 
 // Log Api

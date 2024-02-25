@@ -239,7 +239,7 @@ void Native_LogError(Handle plugin, int numParams)
 
     GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
 
-    OutputPretty(true, LogLevel_Error, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
+    OutputPretty(false, LogLevel_Error, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
 }
 
 // public native void Fatal(const char[] format, any ...);
