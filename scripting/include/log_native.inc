@@ -29,8 +29,8 @@ enum
     LogLocation_OFF                     = 0,    /**< Do nothing */
     LogLocation_ServerConsole           = 1,    /**< Message will be routed to server console */
     LogLocation_ClientConsoleAll        = 2,    /**< Message will be routed to all clients' consoles */
-    LogLocation_ClientChatAll           = 4,    /**< Message will be routed to consoles of admins with a flag specified by plugin */
-    LogLocation_AdminConsoleAll         = 8,    /**< Message will be routed to all clients' chat boxes (and consequently consoles) */
+    LogLocation_AdminConsoleAll         = 4,    /**< Message will be routed to consoles of admins with a flag specified by plugin */
+    LogLocation_ClientChatAll           = 8,    /**< Message will be routed to all clients' chat boxes (and consequently consoles) */
     LogLocation_AdminChatAll            = 16,   /**< Message will be routed to chat boxes of admins with a flag specified by plugin */
     LogLocation_File                    = 32,   /**< Message will be routed to plugin's debug log */
     LogLocation_ALL                     = 63

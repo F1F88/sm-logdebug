@@ -7,7 +7,7 @@
 #define PLUGIN_NAME                         "log"
 #define PLUGIN_AUTHOR                       "F1F88"
 #define PLUGIN_DESCRIPTION                  "A simple sm logging framework"
-#define PLUGIN_VERSION	                    "1.0.0"
+#define PLUGIN_VERSION	                    "1.0.1"
 #define PLUGIN_URL                          "https://github.com/F1F88/sm-logdebug"
 
 public Plugin myinfo =
@@ -129,7 +129,7 @@ void InitConVars()
     // Log Version
     CreateConVar(LOG_CONVAR_VERSION_NAME, LOG_CONVAR_VERSION_DEFAULT, LOG_CONVAR_VERSION_DESC, FCVAR_DONTRECORD);
 
-    // AutoExecConfig(true, PLUGIN_NAME);
+    AutoExecConfig(true, PLUGIN_NAME);
 }
 
 void OnConVarChange(ConVar convar, char[] old_value, char[] new_value)
