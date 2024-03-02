@@ -60,12 +60,24 @@ enum
 #define LOG_LEVEL_NAME_FATAL                        "Fatal"
 
 
+// 可以适当调整这些值
+#define LOG_MAX_CONVAR_TAG                          32
+#define LOG_MAX_CONVAR                              64
+#define LOG_MAX_LOG_TAG                             64
+// #define LOG_MAX_FILE_NAME                           64
 #define LOG_MAX_USER_MESSAGE                        2048
 
+#define LOG_MAX_TIME_FORMAT                         64
+#define LOG_MAX_TICK_COUNT                          12
+#define LOG_MAX_LEVEL_NAME                          10
+#define LOG_MAX_FILE                                PLATFORM_MAX_PATH
+#define LOG_MAX_FUNCTION                            128
+#define LOG_MAX_CALLER_BRIEF                        LOG_MAX_FILE + LOG_MAX_FUNCTION
+
 // 只在本文件内使用, 缓存
-static char _convarTag[64];
-static char _logTag[64];
-static char _logFilePath[PLATFORM_MAX_PATH];
+static char _convarTag[LOG_MAX_CONVAR_TAG];
+static char _logTag[LOG_MAX_LOG_TAG];
+static char _logFilePath[LOG_MAX_FILE];
 static char _userMessage[LOG_MAX_USER_MESSAGE];
 
 static int _cvGlobalLevel;
@@ -100,7 +112,7 @@ methodmap Logger
 
         if( ! logFileName[0] )
         {
-            char buffer[PLATFORM_MAX_PATH];
+            char buffer[LOG_MAX_FILE];
             _GetCallerFileName(buffer, sizeof(buffer));
             BuildPath(Path_SM, _logFilePath, sizeof(_logFilePath), "logs/%s.log", buffer);
         }
@@ -204,13 +216,13 @@ static void _OutputPretty(int level)
 static void _OutputMessageToLocation(int level, int location)
 {
     // Prepare Log Message
-    char timeFmt[64];
-    char tickCount[16];
-    char levelName[10];
-    char callerFile[64];
-    char callerFunc[64];
+    char timeFmt[LOG_MAX_TIME_FORMAT];
+    char tickCount[LOG_MAX_TICK_COUNT];
+    char levelName[LOG_MAX_LEVEL_NAME];
+    char callerFile[LOG_MAX_FILE];
+    char callerFunc[LOG_MAX_FUNCTION];
     int callerLine;
-    char callerInfo[128];
+    char callerInfo[LOG_MAX_CALLER_BRIEF];
 
     // Get Part - Time
     if( _PartsAcess(LogParts_Time) )
@@ -304,31 +316,18 @@ static void _OutputMessageToLocation(int level, int location)
     }
 }
 
-// static void _OutputStackCallerToLocationPretty()
-// {
-//     for(int location=1; location<=LogLocation_ALL; location <<= 1)
-//     {
-//         if( _cvCustomGlobalContral && ! (location & _cvGlobalLocation) )
-//             continue;
-//         else if( ! (location & _cvCustomLocation) )
-//             continue;
-
-//         _OutputStackCallerToLocation(location);
-//     }
-// }
-
 static void _OutputStackCallerToLocation(int location)
 {
     // Get Part - Time
-    char timeFmt[64];
+    char timeFmt[LOG_MAX_TIME_FORMAT];
     if( _PartsAcess(LogParts_Time) )
     {
         FormatTime(timeFmt, sizeof(timeFmt), NULL_STRING);
         StrCat(timeFmt, sizeof(timeFmt), " ");
     }
 
-    char file[PLATFORM_MAX_PATH];
-    char func[PLATFORM_MAX_PATH];
+    char file[LOG_MAX_FILE];
+    char func[LOG_MAX_FUNCTION];
 
     FrameIterator frames = new FrameIterator();
 
@@ -458,7 +457,7 @@ static bool _AdminAccess(int client)
 
 static void _GetCallerFileName(char[] file, int maxlength)
 {
-    char buffer[PLATFORM_MAX_PATH];
+    char buffer[LOG_MAX_FILE];
 
     FrameIterator frames = new FrameIterator();
 
@@ -466,7 +465,7 @@ static void _GetCallerFileName(char[] file, int maxlength)
     frames.Next();  // 跳出 1 - ***\include\log_methodmap.inc :: _GetCallerFile
     frames.Next();  // 跳出 2 - ***\include\log_methodmap.inc :: Logger.GetLogger
 
-    frames.GetFilePath(buffer, PLATFORM_MAX_PATH);
+    frames.GetFilePath(buffer, sizeof(buffer));
 
     frames.Close();
 
@@ -480,7 +479,7 @@ static void _GetCallerFileName(char[] file, int maxlength)
 
 static void _GetCallerDesc(char[] callerFile, int maxlength, char[] callerFunc, int maxlength2, int &line)
 {
-    char buffer[PLATFORM_MAX_PATH];
+    char buffer[LOG_MAX_FILE];
 
     FrameIterator frames = new FrameIterator();
 
@@ -512,16 +511,16 @@ static void _GetCallerDesc(char[] callerFile, int maxlength, char[] callerFunc, 
 
 // 定义 ConVar 信息, 方便后期修改
 #define LOG_CONVAR_LEVEL_NAME                       "sm_log_level"
-#define LOG_CONVAR_LEVEL_DEFAULT                    "63"
+#define LOG_CONVAR_LEVEL_DEFAULT                    "62"
 #define LOG_CONVAR_LEVEL_DESC                       "Add up values to enable debug logging to those level\n  0  = off\n  1  = trace\n  2  = debug\n  4  = info\n  8  = warn\n  16 = error\n  32 = fatal\n  63 = all\n"
 
 #define LOG_CONVAR_LOCATION_NAME                    "sm_log_location"
-#define LOG_CONVAR_LOCATION_DEFAULT                 "63"
+#define LOG_CONVAR_LOCATION_DEFAULT                 "37"
 #define LOG_CONVAR_LOCATION_DESC                    "Add up values to enable debug logging to those locations\n  0  = off\n  1  = server console\n  2  = all clients' consoles\n  4  = consoles of admins\n  8  = all clients' chat\n  16 = chat of admins\n  32 = written to the 'logs/{pluginName}.log' file\n  63 = all\n"
 
 #define LOG_CONVAR_PARTS_NAME                       "sm_log_parts"
-#define LOG_CONVAR_PARTS_DEFAULT                    "15"
-#define LOG_CONVAR_PARTS_DESC                       "Add up values to set up additional information included in the logs\n  0  = only user message\n  1  = time\n  2  = tick count\n  4  = log level\n  8  = stack caller location in the following syntax sourcefile::function:line\n  63 = all"
+#define LOG_CONVAR_PARTS_DEFAULT                    "13"
+#define LOG_CONVAR_PARTS_DESC                       "Add up values to set up additional information included in the logs\n  0  = only user message\n  1  = time\n  2  = tick count\n  4  = log level\n  8  = stack caller location in the following syntax sourcefile\n  16 = stack caller location in the following syntax sourcefile::function\n  32 = stack caller location in the following syntax sourcefile::function:line\n  39 = all"
 
 #define LOG_CONVAR_ADMIN_FLAGS_NAME                 "sm_log_admin_flags"
 #define LOG_CONVAR_ADMIN_FLAGS_DEFAULT              "2"
@@ -548,7 +547,7 @@ static void _GetCallerDesc(char[] callerFile, int maxlength, char[] callerFunc, 
 #define LOG_CONVAR_CUSTOM_GLOBAL_CONTRAL_DESC       "是否使用全局 log convar 控制日志输出"
 
 #define LOG_CONVAR_VERSION_NAME                     "sm_%s_log_version"
-#define LOG_CONVAR_VERSION_DEFAULT                  "1.0.0"
+#define LOG_CONVAR_VERSION_DEFAULT                  "1.0.2"
 #define LOG_CONVAR_VERSION_DESC                     "A simple sourcemod logging framework"
 
 static void _InitConVar(const char[] tag, bool setFail)
@@ -576,7 +575,7 @@ static void _InitConVar(const char[] tag, bool setFail)
     _cvGlobalAdminFlags = convar.IntValue;
 
 
-    char buffer[128];
+    char buffer[LOG_MAX_CONVAR];
 
     // custom level
     FormatEx(buffer, sizeof(buffer), LOG_CONVAR_CUSTOM_LEVEL, tag);
