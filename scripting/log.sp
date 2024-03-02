@@ -2,12 +2,11 @@
 #pragma semicolon 1
 
 #include <log_native>
-#include <clients_methodmap>
 
-#define PLUGIN_NAME                         "log"
+#define PLUGIN_NAME                         "logger"
 #define PLUGIN_AUTHOR                       "F1F88"
 #define PLUGIN_DESCRIPTION                  "A simple sm logging framework"
-#define PLUGIN_VERSION	                    "1.0.1"
+#define PLUGIN_VERSION	                    "1.1.0"
 #define PLUGIN_URL                          "https://github.com/F1F88/sm-logdebug"
 
 public Plugin myinfo =
@@ -19,81 +18,44 @@ public Plugin myinfo =
     url         = PLUGIN_URL
 };
 
-// #define LOG_PREFIX                          "[Log]"
-
-#define LOG_LEVEL_NAME_TRACE                "TRACE"
-#define LOG_LEVEL_NAME_DEBUG                "DEBUG"
-#define LOG_LEVEL_NAME_INFO                 "INFO"
-#define LOG_LEVEL_NAME_WARN                 "WARN"
-#define LOG_LEVEL_NAME_ERROR                "ERROR"
-#define LOG_LEVEL_NAME_FATAL                "FATAL"
-
 // 定义 ConVar 信息, 方便后期修改
-#define LOG_CONVAR_LEVEL_DEFAULT            "60"
+#define LOG_CONVAR_LEVEL_DEFAULT            "62"
 #define LOG_CONVAR_LEVEL_NAME               "sm_log_level"
-#define LOG_CONVAR_LEVEL_DESC               "Add up values to enable debug logging to those level\n\
-  0  = off\n\
-  1  = trace\n\
-  2  = debug\n\
-  4  = info\n\
-  8  = warn\n\
-  16 = error\n\
-  32 = fatal\n\
-  63 = all\n"
-#define LOG_CONVAR_LEVEL_MIN                0.0
-#define LOG_CONVAR_LEVEL_MAX                255.0
+#define LOG_CONVAR_LEVEL_DESC               "Add up values to enable debug logging to those level\n  0  = off\n  1  = trace\n  2  = debug\n  4  = info\n  8  = warn\n  16 = error\n  32 = fatal\n  63 = all\n"
 
 #define LOG_CONVAR_LOCATION_DEFAULT         "37"
 #define LOG_CONVAR_LOCATION_NAME            "sm_log_location"
-#define LOG_CONVAR_LOCATION_DESC            "Add up values to enable debug logging to those locations\n\
-  0  = off\n\
-  1  = server console\n\
-  2  = all clients' consoles\n\
-  4  = consoles of admins\n\
-  8  = all clients' chat\n\
-  16 = chat of admins\n\
-  32 = written to the 'logs/{pluginName}.log' file\n\
-  63 = all\n"
-#define LOG_CONVAR_LOCATION_MIN             0.0
-#define LOG_CONVAR_LOCATION_MAX             255.0
+#define LOG_CONVAR_LOCATION_DESC            "Add up values to enable debug logging to those locations\n  0  = off\n  1  = server console\n  2  = all clients' consoles\n  4  = consoles of admins\n  8  = all clients' chat\n  16 = chat of admins\n  32 = written to the 'logs/{pluginName}.log' file\n  63 = all\n"
 
 #define LOG_CONVAR_PARTS_DEFAULT            "13"
 #define LOG_CONVAR_PARTS_NAME               "sm_log_parts"
-#define LOG_CONVAR_PARTS_DESC               "Add up values to set up additional information included in the logs\n\
-  0  = only user message\n\
-  1  = time\n\
-  2  = tick count\n\
-  4  = log level\n\
-  8  = stack caller location in the following syntax sourcefile::function:line\n\
-  15 = all"
-#define LOG_CONVAR_PARTS_MIN                0.0
-#define LOG_CONVAR_PARTS_MAX                255.0
+#define LOG_CONVAR_PARTS_DESC               "Add up values to set up additional information included in the logs\n  0  = only user message\n  1  = time\n  2  = tick count\n  4  = log level\n  8  = stack caller location in the following syntax sourcefile\n  16 = stack caller location in the following syntax sourcefile::function\n  32 = stack caller location in the following syntax sourcefile::function:line\n  39 = all"
+
+#define LOG_CONVAR_ADMIN_FLAGS_DEFAULT      "2"
+#define LOG_CONVAR_ADMIN_FLAGS_NAME         "sm_log_admin_flags"
+#define LOG_CONVAR_ADMIN_FLAGS_DESC         "One or more admin flagbits which define whether a user is an \"admin\". If you pass multiple flags, users will need ALL flags."
 
 #define LOG_CONVAR_VERSION_DEFAULT          PLUGIN_VERSION
 #define LOG_CONVAR_VERSION_NAME             "sm_log_version"
 #define LOG_CONVAR_VERSION_DESC             PLUGIN_DESCRIPTION
 
-// 可以适当调整这些值
-#define LOG_MAX_CONVAR_NAME                 16
-
-#define LOG_MAX_USER_MESSAGE                2048
-// #define LOG_MAX_ALL_MESSAGE                 2048
-#define LOG_MAX_TIME                        64
-#define LOG_MAX_TICK_COUNT                  12
-#define LOG_MAX_LEVEL_NAME                  8
-#define LOG_MAX_FILE_NAME                   128
-#define LOG_MAX_FUNC_NAME                   128
-#define LOG_MAX_CALLER_BRIEF                LOG_MAX_FILE_NAME + LOG_MAX_FUNC_NAME
-
 // 缓存 convar 值, 这样比调用 convar.typeValue 效率更高
 static int g_cvarLevel;
 static int g_cvarLocation;
 static int g_cvarParts;
+static int g_cvarAdminFlags;
 
 // 方法共用
-char g_logFileName[LOG_MAX_FILE_NAME];
+char g_logTag[LOG_MAX_LOG_TAG];
+char g_logFilePath[LOG_MAX_FILE];
 char g_userMessage[LOG_MAX_USER_MESSAGE];
-// char g_allMessage[LOG_MAX_ALL_MESSAGE];
+
+char g_timeFmt[LOG_MAX_TIME_FORMAT];
+char g_tickCount[LOG_MAX_TICK_COUNT];
+char g_levelName[LOG_MAX_LEVEL_NAME];
+char g_callerFile[LOG_MAX_FILE];
+char g_callerFunc[LOG_MAX_FUNCTION];
+char g_callerInfo[LOG_MAX_CALLER_BRIEF];
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -112,22 +74,27 @@ void InitConVars()
     ConVar convar;
 
     // Log Level
-    convar = CreateConVar(LOG_CONVAR_LEVEL_NAME, LOG_CONVAR_LEVEL_DEFAULT, LOG_CONVAR_LEVEL_DESC, _, true, LOG_CONVAR_LEVEL_MIN, true, LOG_CONVAR_LEVEL_MAX);
+    convar = CreateConVar(LOG_CONVAR_LEVEL_NAME, LOG_CONVAR_LEVEL_DEFAULT, LOG_CONVAR_LEVEL_DESC, _);
     convar.AddChangeHook(OnConVarChange);
     g_cvarLevel = convar.IntValue;
 
     // Log Location
-    convar = CreateConVar(LOG_CONVAR_LOCATION_NAME, LOG_CONVAR_LOCATION_DEFAULT, LOG_CONVAR_LOCATION_DESC, _, true, LOG_CONVAR_LOCATION_MIN, true, LOG_CONVAR_LOCATION_MAX);
+    convar = CreateConVar(LOG_CONVAR_LOCATION_NAME, LOG_CONVAR_LOCATION_DEFAULT, LOG_CONVAR_LOCATION_DESC, _);
     convar.AddChangeHook(OnConVarChange);
     g_cvarLocation = convar.IntValue;
 
     // Log Message Parts
-    convar = CreateConVar(LOG_CONVAR_PARTS_NAME, LOG_CONVAR_PARTS_DEFAULT, LOG_CONVAR_PARTS_DESC, _, true, LOG_CONVAR_PARTS_MIN, true, LOG_CONVAR_PARTS_MAX);
+    convar = CreateConVar(LOG_CONVAR_PARTS_NAME, LOG_CONVAR_PARTS_DEFAULT, LOG_CONVAR_PARTS_DESC, _);
     convar.AddChangeHook(OnConVarChange);
     g_cvarParts = convar.IntValue;
 
+    // Log admin flags
+    convar = CreateConVar(LOG_CONVAR_ADMIN_FLAGS_NAME, LOG_CONVAR_ADMIN_FLAGS_DEFAULT, LOG_CONVAR_ADMIN_FLAGS_DESC, _);
+    convar.AddChangeHook(OnConVarChange);
+    g_cvarAdminFlags = convar.IntValue;
+
     // Log Version
-    CreateConVar(LOG_CONVAR_VERSION_NAME, LOG_CONVAR_VERSION_DEFAULT, LOG_CONVAR_VERSION_DESC, FCVAR_DONTRECORD);
+    CreateConVar(LOG_CONVAR_VERSION_NAME, LOG_CONVAR_VERSION_DEFAULT, LOG_CONVAR_VERSION_DESC, FCVAR_NOTIFY|FCVAR_DONTRECORD|FCVAR_PLUGIN|FCVAR_SPONLY);
 
     AutoExecConfig(true, PLUGIN_NAME);
 }
@@ -137,8 +104,8 @@ void OnConVarChange(ConVar convar, char[] old_value, char[] new_value)
     if( convar == null )
         return ;
 
-    char convarName[LOG_MAX_CONVAR_NAME];
-    convar.GetName(convarName, LOG_MAX_CONVAR_NAME);
+    char convarName[32];
+    convar.GetName(convarName, sizeof(convarName));
 
     if( StrEqual(convarName, LOG_CONVAR_LEVEL_NAME) )
     {
@@ -152,122 +119,255 @@ void OnConVarChange(ConVar convar, char[] old_value, char[] new_value)
     {
         g_cvarParts = convar.IntValue;
     }
+    else if( StrEqual(convarName, LOG_CONVAR_ADMIN_FLAGS_NAME) )
+    {
+        g_cvarAdminFlags = convar.IntValue;
+    }
 }
 
 // ================================= Native ==================================
 void InitNatives()
 {
-    CreateNative("Log.Log",                     Native_LogConstructor);
-    CreateNative("Log.Trace",                   Native_LogTrace);
-    CreateNative("Log.Debug",                   Native_LogDebug);
-    CreateNative("Log.Info",                    Native_LogInfo);
-    CreateNative("Log.Warn",                    Native_LogWarn);
-    CreateNative("Log.Error",                   Native_LogError);
-    CreateNative("Log.Fatal",                   Native_LogFatal);
-    CreateNative("Log.AssignOutput",            Native_AssignOutput);
+    CreateNative("_LevelAccess",            Native_LevelAccess);
+    CreateNative("_LocationAccess",         Native_LocationAccess);
+    CreateNative("_OutputLogMessage",       Native_OutputLogMessage);
 }
 
 
-
-// public native Log()
-any Native_LogConstructor(Handle plugin, int numParams)
+// native bool _LevelAccess(int level);
+any Native_LevelAccess(Handle plugin, int numParams)
 {
-    return view_as<Log>( 0xf1f88 );
+    int level = GetNativeCell(1);
+    return (level & g_cvarLevel) != 0;
 }
 
-// public native void Trace(const char[] format, any ...);
-void Native_LogTrace(Handle plugin, int numParams)
+// native bool _LocationAccess();
+any Native_LocationAccess(Handle plugin, int numParams)
 {
-    // Check level permission
-    if( ! (g_cvarLevel & LogLevel_Trace) || g_cvarLocation == LogLocation_OFF )
-        return ;
-
-    // tut: https://wiki.alliedmods.net/Creating_Natives_(SourceMod_Scripting)#Format_Functions
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage, _);
-
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
-
-    OutputPretty(true, LogLevel_Trace, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
+    return g_cvarLocation != LogLocation_OFF;
 }
 
-// public native void Debug(const char[] format, any ...);
-void Native_LogDebug(Handle plugin, int numParams)
+// native void _OutputLogMessage(int level, const char[] logTag, const char[] logFileName, const char[] userMessage);
+void Native_OutputLogMessage(Handle plugin, int numParams)
 {
-    if( ! (g_cvarLevel & LogLevel_Debug) || g_cvarLocation == LogLocation_OFF )
-        return ;
+    int level = GetNativeCell(1);
 
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+    GetNativeString(2, g_logTag, sizeof(g_logTag));
+    GetNativeString(3, g_logFilePath, sizeof(g_logFilePath));
+    GetNativeString(4, g_userMessage, sizeof(g_userMessage));
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+    OutputMessageToLocation(level, g_logTag, g_logFilePath, g_userMessage);
 
-    OutputPretty(false, LogLevel_Debug, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
+    if( (level & LogLevel_Trace) || (level & LogLevel_Fatal) )
+        OutputStackCallerToLocation(g_logTag, g_logFilePath);
 }
 
-// public native void Info(const char[] format, any ...);
-void Native_LogInfo(Handle plugin, int numParams)
+
+void OutputMessageToLocation(int level, const char[] logTag, const char[] logFilePath, const char[] userMessage)
 {
-    if( ! (g_cvarLevel & LogLevel_Info) || g_cvarLocation == LogLocation_OFF )
-        return ;
+    // Get Part - Time
+    if( g_cvarParts & LogParts_Time )
+    {
+        GetPartTime(g_timeFmt, sizeof(g_timeFmt));
+    }
+    else
+    {
+        g_timeFmt[0] = '\0';
+    }
 
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+    // Get Part - Tick Count
+    if( g_cvarParts & LogParts_TickCount )
+    {
+        GetPartTickCount(g_tickCount, sizeof(g_tickCount));
+    }
+    else
+    {
+        g_tickCount[0] = '\0';
+    }
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+    // Get Part - Level Name
+    if( g_cvarParts & LogParts_Level )
+    {
+        GetPartLevelName(level, g_levelName, sizeof(g_levelName));
+    }
+    else
+    {
+        g_levelName[0] = '\0';
+    }
 
-    OutputPretty(false, LogLevel_Info, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
+    // Get Part - Stack Caller Brief
+    PrintToServer(" === Stack Caller Brief | %d | %d | %d | %d", g_cvarParts, g_cvarParts & LogParts_StackCallerFile, g_cvarParts & LogParts_StackCallerFileAndFunc, g_cvarParts & LogParts_StackCallerFileAndFuncAndLine);
+    if( g_cvarParts & LogParts_StackCallerFile )
+    {
+        int line;
+        GetCallerInfo(g_callerFile, sizeof(g_callerFile), g_callerFunc, sizeof(g_callerFunc), line);
+        FormatEx(g_callerInfo, sizeof(g_callerInfo), "(%s) ", g_callerFile);
+    }
+    else if( g_cvarParts & LogParts_StackCallerFileAndFunc )
+    {
+        int line;
+        GetCallerInfo(g_callerFile, sizeof(g_callerFile), g_callerFunc, sizeof(g_callerFunc), line);
+        FormatEx(g_callerInfo, sizeof(g_callerInfo), "(%s::%s) ", g_callerFile, g_callerFunc);
+    }
+    else if( g_cvarParts & LogParts_StackCallerFileAndFuncAndLine )
+    {
+        int line;
+        GetCallerInfo(g_callerFile, sizeof(g_callerFile), g_callerFunc, sizeof(g_callerFunc), line);
+        FormatEx(g_callerInfo, sizeof(g_callerInfo), "(%s::%s::%s) ", g_callerFile, g_callerFunc, line);
+    }
+    else
+    {
+        g_callerInfo[0] = '\0';
+    }
+
+
+    if( g_cvarLocation & LogLocation_ServerConsole )
+    {
+        PrintToServer("%s%s%s%s%s%s", g_timeFmt, g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+    }
+
+    if( g_cvarLocation & LogLocation_ClientConsoleAll )
+    {
+        PrintToConsoleAll("%s%s%s%s%s%s", g_timeFmt, g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+    }
+
+    if( g_cvarLocation & LogLocation_ClientChatAll )
+    {
+        PrintToChatAll("%s%s%s%s%s", g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+    }
+
+    for(int client = 1; client <= MaxClients; ++client)
+    {
+        if( ! IsClientInGame(client) || ! CheckCommandAccess(client, NULL_STRING, g_cvarAdminFlags, true) )
+            continue;
+
+        if( g_cvarLocation & LogLocation_AdminConsoleAll )
+        {
+            PrintToConsole(client, "%s%s%s%s%s%s", g_timeFmt, g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+        }
+
+        if( g_cvarLocation & LogLocation_AdminChatAll )
+        {
+            PrintToChat(client, "%s%s%s%s%s", g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+        }
+    }
+
+    if( g_cvarLocation & LogLocation_File )
+    {
+        LogToFileEx(logFilePath, "%s%s%s%s%s", g_tickCount, g_levelName, g_callerInfo, logTag, userMessage);
+    }
 }
 
-// public native void Warn(const char[] format, any ...);
-void Native_LogWarn(Handle plugin, int numParams)
+void OutputStackCallerToLocation(const char[] logTag, const char[] logFilePath)
 {
-    if( ! (g_cvarLevel & LogLevel_Warn) || g_cvarLocation == LogLocation_OFF )
-        return ;
+    // Get Part - Time
+    if( g_cvarParts & LogParts_Time )
+    {
+        GetPartTime(g_timeFmt, sizeof(g_timeFmt));
+    }
+    else
+    {
+        g_timeFmt[0] = '\0';
+    }
 
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+    FrameIterator frames = new FrameIterator();
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+    // 先跳出当前栈
+    while( frames.Next() )
+    {
+        frames.GetFunctionName(g_callerFunc, 2);
 
-    OutputPretty(false, LogLevel_Warn, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
-}
+        if( ! g_callerFunc[0] )
+        {
+            frames.Next();
+            // frames.Next();
+            break;
+        }
+    }
 
-// public native void Error(const char[] format, any ...);
-void Native_LogError(Handle plugin, int numParams)
-{
-    if( ! (g_cvarLevel & LogLevel_Error) || g_cvarLocation == LogLocation_OFF )
-        return ;
+    for(int idx=0; frames.Next(); ++idx)
+    {
+        frames.GetFilePath(g_callerFile, sizeof(g_callerFile));
+        frames.GetFunctionName(g_callerFunc, sizeof(g_callerFunc));
 
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+        if( g_callerFile[0] && idx > 0 )
+        {
+            if( g_cvarLocation & LogLocation_ServerConsole )
+            {
+                PrintToServer("%s%s  [%d] Line %d, %s::%s", g_timeFmt, logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+            }
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+            if( g_cvarLocation & LogLocation_ClientConsoleAll )
+            {
+                PrintToConsoleAll("%s%s  [%d] Line %d, %s::%s", g_timeFmt, logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+            }
 
-    OutputPretty(false, LogLevel_Error, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
-}
+            if( g_cvarLocation & LogLocation_ClientChatAll )
+            {
+                PrintToChatAll("%s  [%d] Line %d, %s::%s", logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+            }
 
-// public native void Fatal(const char[] format, any ...);
-void Native_LogFatal(Handle plugin, int numParams)
-{
-    if( ! (g_cvarLevel & LogLevel_Fatal) || g_cvarLocation == LogLocation_OFF )
-        return ;
+            for(int client = 1; client <= MaxClients; ++client)
+            {
+                if( ! IsClientInGame(client) || ! CheckCommandAccess(client, NULL_STRING, g_cvarAdminFlags, true) )
+                    continue;
 
-    FormatNativeString(0, 2, 3, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+                if( g_cvarLocation & LogLocation_AdminConsoleAll )
+                {
+                    PrintToConsole(client, "%s%s  [%d] Line %d, %s::%s", g_timeFmt, logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+                }
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+                if( g_cvarLocation & LogLocation_AdminChatAll )
+                {
+                    PrintToChat(client, "%s  [%d] Line %d, %s::%s", logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+                }
+            }
 
-    OutputPretty(true, LogLevel_Fatal, g_cvarLocation, g_cvarParts, g_logFileName, g_userMessage);
-}
+            if( g_cvarLocation & LogLocation_File )
+            {
+                LogToFileEx(logFilePath, "%s  [%d] Line %d, %s::%s", logTag, idx, frames.LineNumber, g_callerFile, g_callerFunc);
+            }
+        }
+        else if( g_callerFunc[0] )
+        {
+            if( g_cvarLocation & LogLocation_ServerConsole )
+            {
+                PrintToServer("%s%s  [%d] %s", g_timeFmt, logTag, idx, g_callerFunc);
+            }
 
-// public native void AssignOutput(int level, int location, int parts, const char[] format, any ...);
-void Native_AssignOutput(Handle plugin, int numParams)
-{
-    FormatNativeString(0, 6, 7, LOG_MAX_USER_MESSAGE, _, g_userMessage);
+            if( g_cvarLocation & LogLocation_ClientConsoleAll )
+            {
+                PrintToConsoleAll("%s%s  [%d] %s", g_timeFmt, logTag, idx, g_callerFunc);
+            }
 
-    bool trace = GetNativeCell(2);
-    int level = GetNativeCell(3);
-    int location = GetNativeCell(4);
-    int parts = GetNativeCell(5);
+            if( g_cvarLocation & LogLocation_ClientChatAll )
+            {
+                PrintToChatAll("%s  [%d] %s", logTag, idx, g_callerFunc);
+            }
 
-    GetCallerFileName(g_logFileName, LOG_MAX_FILE_NAME);
+            for(int client = 1; client <= MaxClients; ++client)
+            {
+                if( ! IsClientInGame(client) || ! CheckCommandAccess(client, NULL_STRING, g_cvarAdminFlags, true) )
+                    continue;
 
-    OutputPretty(trace, level, location, parts, g_logFileName, g_userMessage);
+                if( g_cvarLocation & LogLocation_AdminConsoleAll )
+                {
+                    PrintToConsole(client, "%s%s  [%d] %s", g_timeFmt, logTag, idx, g_callerFunc);
+                }
+
+                if( g_cvarLocation & LogLocation_AdminChatAll )
+                {
+                    PrintToChat(client, "%s  [%d] %s", logTag, idx, g_callerFunc);
+                }
+            }
+
+            if( g_cvarLocation & LogLocation_File )
+            {
+                LogToFileEx(logFilePath, "%s  [%d] %s", logTag, idx, g_callerFunc);
+            }
+        }
+    }
+    frames.Close();
 }
 
 // ================================= Common ==================================
@@ -286,30 +386,20 @@ void GetPartLevelName(int level, char[] buffer, int maxlength)
 {
     switch( level )
     {
-        case LogLevel_Trace:    FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_TRACE);
-        case LogLevel_Debug:    FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_DEBUG);
-        case LogLevel_Info:     FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_INFO);
-        case LogLevel_Warn:     FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_WARN);
-        case LogLevel_Error:    FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_ERROR);
-        case LogLevel_Fatal:    FormatEx(buffer, maxlength, "[%s]", LOG_LEVEL_NAME_FATAL);
+        case LogLevel_Trace:    FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_TRACE);
+        case LogLevel_Debug:    FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_DEBUG);
+        case LogLevel_Info:     FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_INFO);
+        case LogLevel_Warn:     FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_WARN);
+        case LogLevel_Error:    FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_ERROR);
+        case LogLevel_Fatal:    FormatEx(buffer, maxlength, "<%s> ", LOG_LEVEL_NAME_FATAL);
         default :               buffer[0] = '\0';
     }
-}
-
-void GetCallerBrief(char[] buffer, int maxlength)
-{
-    char callerFile[LOG_MAX_FILE_NAME];
-    char callerFunc[LOG_MAX_FUNC_NAME];
-    int line;
-
-    GetCallerInfo(callerFile, LOG_MAX_FILE_NAME, callerFunc, LOG_MAX_FUNC_NAME, line);
-    FormatEx(buffer, maxlength, "(%s::%s::%d) - ", callerFile, callerFunc, line);
 }
 
 void GetCallerInfo(char[] callerFile, int maxlength, char[] callerFunction, int maxlength2, int &line)
 {
     FrameIterator frames = new FrameIterator();
-    char buffer[PLATFORM_MAX_PATH];
+    static char buffer[PLATFORM_MAX_PATH];
 
     // 先跳出当前栈
     while( frames.Next() )
@@ -320,17 +410,13 @@ void GetCallerInfo(char[] callerFile, int maxlength, char[] callerFunction, int 
         {
             frames.Next();
             frames.Next();
+            frames.Next();
             break;
         }
     }
 
     // Stack Caller File Name
-    frames.GetFilePath(buffer, PLATFORM_MAX_PATH);
-    // buffer[ strlen(buffer) - 3 ] = '\0';                    // 除去文件名后缀 .sp
-    int sepIndex = FindCharInString(buffer, '\\', true);    // 除去首部多余的路径
-    if( sepIndex == -1 )                                    // 如果是 Linux 则查找 '/'
-        sepIndex = FindCharInString(buffer, '/', true);
-    strcopy(callerFile, maxlength, buffer[sepIndex + 1]);
+    frames.GetFilePath(buffer, sizeof(buffer));
 
     // Stack Caller Function Name
     frames.GetFunctionName(callerFunction, maxlength2);
@@ -339,262 +425,13 @@ void GetCallerInfo(char[] callerFile, int maxlength, char[] callerFunction, int 
     line = frames.LineNumber;
     frames.Close();
 
-    FormatEx(buffer, PLATFORM_MAX_PATH, "(%s::%s::%d)", callerFile, callerFunction, line);
-}
-
-void GetCallerFileName(char[] callerFile, int maxlength)
-{
-    FrameIterator frames = new FrameIterator();
-    char buffer[PLATFORM_MAX_PATH];
-
-    // 先跳出当前栈
-    while( frames.Next() )
-    {
-        frames.GetFunctionName(buffer, 2);
-
-        if( ! buffer[0] )
-        {
-            frames.Next();
-            frames.Next();
-            break;
-        }
-    }
-
-    // Stack Caller File
-    frames.GetFilePath(buffer, PLATFORM_MAX_PATH);
-    frames.Close();
-
     // buffer[ strlen(buffer) - 3 ] = '\0';                    // 除去文件名后缀 .sp
     int sepIndex = FindCharInString(buffer, '\\', true);    // 除去首部多余的路径
     if( sepIndex == -1 )                                    // 如果是 Linux 则查找 '/'
         sepIndex = FindCharInString(buffer, '/', true);
+
     strcopy(callerFile, maxlength, buffer[sepIndex + 1]);
 }
 
 
 
-
-// 缓解 sv_logecho 日志回显导致的 控制台信息混乱不方便阅读的问题
-void OutputPretty(bool trace, int level, int location, int parts, const char[] logFileName="", const char[] userMessage)
-{
-    for(int i=1; i<=LogLocation_ALL; i <<= 1)
-    {
-        if( ! (location & i) )
-            continue;
-
-        OutputMessageToLocation(level, i, parts, logFileName, userMessage);
-
-        if( trace )
-            OutputStackCallerToLocation(i, parts, logFileName);
-    }
-}
-
-void OutputMessageToLocation(int level, int location, int parts, const char[] logFileName="", const char[] userMessage)
-{
-    char timeFmt[LOG_MAX_TIME];
-    char tickCount[LOG_MAX_TICK_COUNT];
-    char levelName[LOG_MAX_LEVEL_NAME];
-    char callerBrief[LOG_MAX_CALLER_BRIEF];
-
-    // Get Part - Time
-    if( parts & LogParts_Time )
-    {
-        GetPartTime(timeFmt, LOG_MAX_TIME);
-    }
-
-    // Get Part - Tick Count
-    if( parts & LogParts_TickCount )
-    {
-        GetPartTickCount(tickCount, LOG_MAX_TICK_COUNT);
-    }
-
-    // Get Part - Level Name
-    if( parts & LogParts_Level )
-    {
-        GetPartLevelName(level, levelName, LOG_MAX_LEVEL_NAME);
-    }
-
-    // Get Part - Stack Caller Brief
-    if( parts & LogParts_StackCallerBrief )
-    {
-        GetCallerBrief(callerBrief, LOG_MAX_CALLER_BRIEF);
-    }
-
-
-    if( location & LogLocation_ServerConsole )
-    {
-        PrintToServer("%s%s%s%s%s", timeFmt, tickCount, levelName, callerBrief, userMessage);
-    }
-
-    if( location & LogLocation_ClientConsoleAll )
-    {
-        PrintToConsoleAll("%s%s%s%s%s", timeFmt, tickCount, levelName, callerBrief, userMessage);
-    }
-
-    if( location & LogLocation_ClientChatAll )
-    {
-        PrintToChatAll("%s%s%s%s%s", timeFmt, tickCount, levelName, callerBrief, userMessage);
-    }
-
-    for(int client = 1; client <= MaxClients; ++client)
-    {
-        if( ! IsClientInGame(client) || GetUserAdmin(client) == INVALID_ADMIN_ID )
-            continue;
-
-        if( location & LogLocation_AdminConsoleAll )
-        {
-            PrintToConsole(client, "%s%s%s%s%s", timeFmt, tickCount, levelName, callerBrief, userMessage);
-        }
-
-        if( location & LogLocation_AdminChatAll )
-        {
-            PrintToChat(client, "%s%s%s%s%s", timeFmt, tickCount, levelName, callerBrief, userMessage);
-        }
-    }
-
-    if( location & LogLocation_File )
-    {
-        if( ! logFileName[0] )
-        {
-            char buffer[LOG_MAX_FILE_NAME];
-            GetCallerFileName(buffer, LOG_MAX_FILE_NAME);
-
-            LogToFileEx(buffer, "%s%s%s%s", tickCount, levelName, callerBrief, userMessage);
-        }
-        else
-        {
-            LogToFileEx(logFileName, "%s%s%s%s", tickCount, levelName, callerBrief, userMessage);
-        }
-    }
-}
-
-void OutputStackCallerToLocation(int location, int parts, const char[] logFileName="")
-{
-    char timeFmt[LOG_MAX_TIME];
-    char callerFilePath[PLATFORM_MAX_PATH];
-    char callerFunc[LOG_MAX_FUNC_NAME];
-    FrameIterator frames = new FrameIterator();
-
-    // Get Part - Time
-    if( parts & LogParts_Time )
-    {
-        GetPartTime(timeFmt, LOG_MAX_TIME);
-    }
-
-    // 先跳出当前栈
-    while( frames.Next() )
-    {
-        frames.GetFunctionName(callerFunc, 2);
-
-        if( ! callerFunc[0] )
-        {
-            // frames.Next();
-            // frames.Next();
-            break;
-        }
-    }
-
-    for(int idx=0; frames.Next(); ++idx)
-    {
-        frames.GetFilePath(callerFilePath, PLATFORM_MAX_PATH);
-        frames.GetFunctionName(callerFunc, LOG_MAX_FUNC_NAME);
-
-        if( callerFilePath[0] )
-        {
-            if( location & LogLocation_ServerConsole )
-            {
-                PrintToServer("%s  [%d] Line %d, %s::%s", timeFmt, idx, frames.LineNumber, callerFilePath, callerFunc);
-            }
-
-            if( location & LogLocation_ClientConsoleAll )
-            {
-                PrintToConsoleAll("%s  [%d] Line %d, %s::%s", timeFmt, idx, frames.LineNumber, callerFilePath, callerFunc);
-            }
-
-            if( location & LogLocation_ClientChatAll )
-            {
-                PrintToChatAll("%s  [%d] Line %d, %s::%s", timeFmt, idx, frames.LineNumber, callerFilePath, callerFunc);
-            }
-
-            for(int client = 1; client <= MaxClients; ++client)
-            {
-                if( ! IsClientInGame(client) || GetUserAdmin(client) == INVALID_ADMIN_ID )
-                    continue;
-
-                if( location & LogLocation_AdminConsoleAll )
-                {
-                    PrintToConsole(client, "%s  [%d] Line %d, %s::%s", timeFmt, idx, frames.LineNumber, callerFilePath, callerFunc);
-                }
-
-                if( location & LogLocation_AdminChatAll )
-                {
-                    PrintToChat(client, "%s  [%d] Line %d, %s::%s", timeFmt, idx, frames.LineNumber, callerFilePath, callerFunc);
-                }
-            }
-
-            if( location & LogLocation_File )
-            {
-                if( ! logFileName[0] )
-                {
-                    char buffer[LOG_MAX_FILE_NAME];
-                    GetCallerFileName(buffer, LOG_MAX_FILE_NAME);
-
-                    LogToFileEx(buffer, "  [%d] Line %d, %s::%s", idx, frames.LineNumber, callerFilePath, callerFunc);
-                }
-                else
-                {
-                    LogToFileEx(logFileName, "  [%d] Line %d, %s::%s", idx, frames.LineNumber, callerFilePath, callerFunc);
-                }
-            }
-        }
-        else if( callerFunc[0] )
-        {
-            if( location & LogLocation_ServerConsole )
-            {
-                PrintToServer("%s  [%d] %s", timeFmt, idx, callerFunc);
-            }
-
-            if( location & LogLocation_ClientConsoleAll )
-            {
-                PrintToConsoleAll("%s  [%d] %s", timeFmt, idx, callerFunc);
-            }
-
-            if( location & LogLocation_ClientChatAll )
-            {
-                PrintToChatAll("%s  [%d] %s", timeFmt, idx, callerFunc);
-            }
-
-            for(int client = 1; client <= MaxClients; ++client)
-            {
-                if( ! IsClientInGame(client) || GetUserAdmin(client) == INVALID_ADMIN_ID )
-                    continue;
-
-                if( location & LogLocation_AdminConsoleAll )
-                {
-                    PrintToConsole(client, "%s  [%d] %s", timeFmt, idx, callerFunc);
-                }
-
-                if( location & LogLocation_AdminChatAll )
-                {
-                    PrintToChat(client, "%s  [%d] %s", timeFmt, idx, callerFunc);
-                }
-            }
-
-            if( location & LogLocation_File )
-            {
-                if( ! logFileName[0] )
-                {
-                    char buffer[LOG_MAX_FILE_NAME];
-                    GetCallerFileName(buffer, LOG_MAX_FILE_NAME);
-
-                    LogToFileEx(buffer, "  [%d] %s", idx, callerFunc);
-                }
-                else
-                {
-                    LogToFileEx(logFileName, "  [%d] %s", idx, callerFunc);
-                }
-            }
-        }
-    }
-    frames.Close();
-}
