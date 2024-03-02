@@ -1,4 +1,4 @@
-- # Logger | [中文](./README-CHI.md)
+# Logger | [中文](./README-CHI.md)
 
   A simple Log framework based on Sourcemod
 
@@ -7,35 +7,35 @@
   - Supports customizable levels of logging information output.
 
     > Trace, Debug, Info, Waring, Error, Fatal Output occurs only when the corresponding bit of `sm_log_level` is 1. If `sm_log_level` == 0, no information will be output.
-  
+
   - Supports outputting stack information.
 
     > When the log level is Trace, Fatal, it will output stack call information (similar to LogStackTrace) in addition to user information.
 
   - Supports customizing the output location of logs.
-  
+
     > If `sm_log_location` == 0, nothing will happen. Logs will be output to the corresponding location only if the corresponding bit of `sm_log_location` is 1.
-  
+
   - Supports customizing the components of logging information.
-  
+
     > If `sm_log_parts` == 0, only user logs will be output.
     >
     > Other information will be attached to the message header only if the corresponding bit of `sm_log_parts` is 1.
-  
+
   - Supports specifying what permissions administrators must have to receive logs.
-  
+
     > If `sm_log_admin_flags` == 0, all clients can receive logs. (Not recommended, as it may duplicate with LogLocation_Client***)
     >
     > Logs will be received according to administrator permissions if `sm_log_admin_flags` != 0.
-  
+
   - Supports adding message headers.
-  
+
     > A message header can be added between parts and user logs by specifying logTag. Used for identification, such as [SM].
-  
+
   - Supports customizing the format of time in logs.
-  
+
     > The time format depends on `sm_datetime_format`.
-  
+
   - Supports customizing the log file name.
 
     > By default, logs will be written to different files based on the caller's filename.
@@ -46,15 +46,15 @@
 
   - Methodmap is more convenient to use, has more comprehensive functions, and slightly higher occupancy performance, but its impact is not significant. Recommended use
   - Native requires the introduction of plugins, which are not fully functional and have low usage performance. Suggest using only when high performance requirements are required
-  
+
   ###### Similarities
-  
+
   - The usage method is the same: only need to modify the include when switching.
   - Same API: both provide 1 factory method and 6 logging levels.
   - Same output format: only depends on the value of convar - parts.
-  
+
   ###### Differences
-  
+
   - Methodmap usage only requires including log_methodmap.inc in the plugin.
   - Methodmap version additionally supports each plugin to control logging output with its own exclusive convar.
   - The version number of the methodmap version depends on the version of log_methodmap.inc included.
@@ -83,16 +83,16 @@
   |           Memory Usage            | Relatively Less  |  Relatively More   |                                                              |
 
   ### Installation and Usage
-  
+
   ##### Methodmap
-  
+
   - Simply import the `log_methodmap.inc` header file into your plugin.
   - Write your plugin using the API provided by `log_methodmap.inc`.
   - Upload your compiled plugin's smx file to `./addons/sourcemod/plugins/`.
   - Restart the server or use `sm plugins load {pluginsName}` to load the plugin.
-  
+
   ##### Native
-  
+
   - Import the `log_native.inc` header file into your plugin.
   - Write your plugin using the API provided by `log_native.inc`.
   - Upload your compiled plugin's smx file to `./addons/sourcemod/plugins/`.
@@ -101,9 +101,9 @@
   - Restart the server or use `sm plugins load {pluginsName}` to load the plugin.
 
   ### API Usage
-  
+
   - Refer to `log-***-example.sp`.
-  
-  
+
+
 
 `This article is translated by ChatGPT`
