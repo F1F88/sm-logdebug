@@ -7,16 +7,19 @@
 - 支持自定义日志信息输出的级别。
 
   > Trace, Debug, Info, Waring, Error, Fatal
+  >
   > 当 `sm_log_level` 对应的 bit 位是 1 时才会输出。
+  >
   > 若 `sm_log_level` == 0 ，则不会输出任何信息。
 
 - 支持输出堆栈信息
 
-  > 当日志级别为 Trace，Fatal 时，会在输出用户信息后，额外输出堆栈调用信息（类似 LogStackTrace ）。
+  > 当日志级别为 Trace，Fatal 时，会在输出用户信息后额外输出堆栈调用信息（类似 LogStackTrace ）。
 
 - 支持自定义日志输出的位置。
 
   > 当 `sm_log_location` == 0 ，不会发生任何事情。
+  >
   > 当 `sm_log_location` 对应的 bit 位是 1 时，才会输出到对应位置。
 
 - 支持自定义日志信息组成部分。
@@ -53,17 +56,17 @@
 
 ###### 相同点
 
-- 使用方法相同：切换时只需修改引入的 include 
+- 使用方法相同：切换时只需修改引入的 include
 - API 相同：都提供了 1 个工厂方法和 6 个日志输出级别
 - 输出格式相同：仅取决于 convar - parts 的值
 
 ###### 不同点
 
-- methodmap 的使用仅需要在插件中引入 include - log_methodmap.inc 
+- methodmap 的使用仅需要在插件中引入 include - log_methodmap.inc
 - methodmap 版额外支持每个插件使用自己专属的 convar 控制日志输出
 - methodmap 版的版本号取决于引入的 log_methodmap.inc 的版本
 - methodmap 版在同时输出到多个 location 时做了优化，使输出结果看起来更加美观
-- methodmap 版的工厂方法中，convarTag 和 failOnCustomConVarExists 用于生成专属的日志控制 convar 
+- methodmap 版的工厂方法中，convarTag 和 failOnCustomConVarExists 用于生成专属的日志控制 convar
 - methodmap 版会创建 4 个全局 convar + 引入插件个数 * 6 个专属 convar
 - methodmap 版使用了全局变量进行缓存，避免了重复创建 char array
 - native 的使用不仅需要引入 include - log_native.inc，还需要添加 log.smx 插件

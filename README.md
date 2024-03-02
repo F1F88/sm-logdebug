@@ -6,7 +6,11 @@
 
   - Supports customizable levels of logging information output.
 
-    > Trace, Debug, Info, Waring, Error, Fatal Output occurs only when the corresponding bit of `sm_log_level` is 1. If `sm_log_level` == 0, no information will be output.
+    > Trace, Debug, Info, Waring, Error, Fatal
+    >
+    > Output occurs only when the corresponding bit of `sm_log_level` is 1.
+    >
+    > If `sm_log_level` == 0, no information will be output.
 
   - Supports outputting stack information.
 
@@ -14,7 +18,9 @@
 
   - Supports customizing the output location of logs.
 
-    > If `sm_log_location` == 0, nothing will happen. Logs will be output to the corresponding location only if the corresponding bit of `sm_log_location` is 1.
+    > If `sm_log_location` == 0, nothing will happen. Logs will be output to the corresponding location only
+    >
+    > if the corresponding bit of `sm_log_location` is 1.
 
   - Supports customizing the components of logging information.
 
